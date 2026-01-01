@@ -649,6 +649,22 @@ export default function RetailerProductsPage() {
               <div className="text-center py-12">
                 <div className="text-gray-600">Loading products...</div>
               </div>
+            ) : accessibleManufacturerIds.length === 0 ? (
+              <div className="bg-white rounded-xl shadow-lg p-12 text-center">
+                <div className="text-6xl mb-4">🔒</div>
+                <h3 className="mt-4 text-xl font-semibold text-gray-900 mb-2">
+                  No Products Available
+                </h3>
+                <p className="mt-2 text-sm text-gray-600 mb-6">
+                  You don't have access to any manufacturer catalogs yet.
+                </p>
+                <Link 
+                  href="/retailer/manufacturers"
+                  className="inline-block px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+                >
+                  Browse Manufacturers
+                </Link>
+              </div>
             ) : products.length === 0 ? (
               <div className="bg-white rounded-xl shadow-lg p-12 text-center">
                 <svg

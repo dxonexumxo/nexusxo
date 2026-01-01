@@ -47,7 +47,6 @@ export default function RetailerProductDetailPage() {
   const [loading, setLoading] = useState(true)
   const [product, setProduct] = useState<Product | null>(null)
   const [relatedProducts, setRelatedProducts] = useState<RelatedProduct[]>([])
-  const [hasAccess, setHasAccess] = useState<boolean | null>(null)
   const [mainImage, setMainImage] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<Tab>('specifications')
   const [error, setError] = useState<string | null>(null)
@@ -78,30 +77,84 @@ export default function RetailerProductDetailPage() {
   }, [router])
 
   useEffect(() => {
-    if (retailerId && productId) {
-      fetchProduct()
+    const fetchProductAndCheckAccess = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        router.push('/retailer/login')
+        return
+      }
+
+      setRetailerId(user.id)
+
+      // Fetch product first
+      const { data: product, error: productError } = await supabase
+        .from('product_data')
+        .select(`
+          *,
+          manufacturers!inner(id, company_name, industry, email)
+        `)
+        .eq('id', productId)
+        .single()
+
+      if (productError || !product) {
+        setError('Product not found')
+        setLoading(false)
+        return
+      }
+
+      // CHECK ACCESS: Does retailer have access to this manufacturer?
+      const { data: accessData, error: accessError } = await supabase
+        .from('retailer_data_access')
+        .select('access_granted')
+        .eq('retailer_id', user.id)
+        .eq('manufacturer_id', product.manufacturer_id)
+        .single()
+
+      // If no access or access revoked, show error
+      if (accessError || !accessData || !accessData.access_granted) {
+        setError('access_denied')
+        setLoading(false)
+        return
+      }
+
+      // Access granted, load product
+      setProduct({
+        ...product,
+        manufacturer_name: product.manufacturers.company_name,
+        manufacturer_industry: product.manufacturers.industry || null,
+        manufacturer_email: product.manufacturers.email || null,
+      })
+      setMainImage(product.image_urls?.[0] || null)
+
+      // Fetch related data
+      await fetchRelatedProducts(product.manufacturer_id, product.category || null)
+      await fetchPriceHistory(productId)
+      await checkIfFavorited(user.id, productId)
+
+      setLoading(false)
     }
-  }, [retailerId, productId])
 
-  const checkFavoriteStatus = async () => {
-    if (!retailerId || !product) return
+    if (productId) {
+      setLoading(true)
+      fetchProductAndCheckAccess()
+    }
+  }, [productId, router])
 
+  const checkIfFavorited = async (userId: string, prodId: string) => {
     try {
-      const favorite = await isProductFavorite(retailerId, product.id)
+      const favorite = await isProductFavorite(userId, prodId)
       setIsFavorite(favorite)
     } catch (err) {
       console.error('Error checking favorite status:', err)
     }
   }
 
-  const fetchPriceHistory = async () => {
-    if (!productId) return
-
+  const fetchPriceHistory = async (prodId: string) => {
     setPriceHistoryLoading(true)
     setPriceHistoryError(null)
 
     try {
-      const history = await getProductPriceHistory(productId)
+      const history = await getProductPriceHistory(prodId)
       setPriceHistory(history)
     } catch (err: any) {
       console.error('Error fetching price history:', err)
@@ -121,97 +174,27 @@ export default function RetailerProductDetailPage() {
         setMainImage(product.image_urls[0])
       }
 
-      // Fetch related products
-      fetchRelatedProducts()
-
       // Check if product is in comparison
       const comparisonIds = getComparisonProducts()
       setIsInComparison(comparisonIds.includes(product.id))
       setComparisonCount(comparisonIds.length)
-
-      // Check if product is favorited
-      if (retailerId) {
-        checkFavoriteStatus()
-      }
-
-      // Fetch price history
-      fetchPriceHistory()
     }
-  }, [product, retailerId, productId])
+  }, [product, productId])
 
-  const fetchProduct = async () => {
-    if (!retailerId || !productId) return
-
-    setLoading(true)
-    setError(null)
-
+  const fetchRelatedProducts = async (manufacturerId: string, category: string | null) => {
     try {
-      // Fetch product with manufacturer info
-      const { data: productData, error: productError } = await supabase
-        .from('product_data')
-        .select('*')
-        .eq('id', productId)
-        .single()
-
-      if (productError || !productData) {
-        setError('Product not found')
-        setLoading(false)
-        return
-      }
-
-      // Fetch manufacturer info
-      const { data: manufacturerData, error: mfgError } = await supabase
-        .from('manufacturers')
-        .select('id, company_name, industry, email')
-        .eq('id', productData.manufacturer_id)
-        .single()
-
-      if (mfgError || !manufacturerData) {
-        setError('Manufacturer information not found')
-        setLoading(false)
-        return
-      }
-
-      // Check retailer access
-      const { data: accessData, error: accessError } = await supabase
-        .from('retailer_data_access')
-        .select('*')
-        .eq('retailer_id', retailerId)
-        .eq('manufacturer_id', productData.manufacturer_id)
-        .eq('access_granted', true)
-        .single()
-
-      if (accessError || !accessData) {
-        setHasAccess(false)
-        setLoading(false)
-        return
-      }
-
-      setHasAccess(true)
-      setProduct({
-        ...productData,
-        manufacturer_name: manufacturerData.company_name,
-        manufacturer_industry: manufacturerData.industry || null,
-        manufacturer_email: manufacturerData.email || null,
-      })
-    } catch (err: any) {
-      console.error('Error fetching product:', err)
-      setError(err.message || 'Failed to load product')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const fetchRelatedProducts = async () => {
-    if (!product || !product.manufacturer_id) return
-
-    try {
-      const { data, error } = await supabase
+      let query = supabase
         .from('product_data')
         .select('id, sku, product_name, price, image_urls')
-        .eq('manufacturer_id', product.manufacturer_id)
-        .neq('id', product.id)
+        .eq('manufacturer_id', manufacturerId)
+        .neq('id', productId)
         .limit(4)
+
+      if (category) {
+        query = query.eq('category', category)
+      }
+
+      const { data, error } = await query
 
       if (error) {
         console.error('Error fetching related products:', error)
@@ -315,31 +298,25 @@ export default function RetailerProductDetailPage() {
     )
   }
 
-  if (hasAccess === false) {
+  if (error === 'access_denied') {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100">
-        <div className="bg-white rounded-xl shadow-lg p-8 max-w-md mx-4 text-center">
-          <svg
-            className="mx-auto h-12 w-12 text-red-500"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-            />
-          </svg>
-          <h2 className="mt-4 text-xl font-bold text-gray-900">Access Denied</h2>
-          <p className="mt-2 text-sm text-gray-500">
-            You don't have access to this product. Please contact the manufacturer to request access.
+      <div className="max-w-7xl mx-auto">
+        <div className="bg-red-50 border-2 border-red-200 rounded-lg p-8 text-center">
+          <div className="text-6xl mb-4">🚫</div>
+          <h2 className="text-2xl font-bold text-red-900 mb-2">Access Denied</h2>
+          <p className="text-red-700 mb-6">
+            You don't have access to this product. The manufacturer may have revoked your access.
           </p>
-          <div className="mt-6">
-            <Link
+          <div className="flex justify-center space-x-4">
+            <Link 
+              href="/retailer/manufacturers"
+              className="px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+            >
+              Browse Manufacturers
+            </Link>
+            <Link 
               href="/retailer/products"
-              className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700"
+              className="px-6 py-3 border border-gray-300 rounded-lg hover:bg-gray-50"
             >
               Back to Products
             </Link>

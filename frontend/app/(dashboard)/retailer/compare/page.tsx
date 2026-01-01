@@ -88,17 +88,25 @@ export default function RetailerComparePage() {
   }
 
   const fetchProducts = async () => {
-    if (productIds.length === 0 || accessibleManufacturerIds.length === 0) return
+    if (productIds.length === 0 || accessibleManufacturerIds.length === 0) {
+      setProducts([])
+      setLoading(false)
+      return
+    }
 
     setLoading(true)
     setError(null)
 
     try {
-      // Fetch products
+      // Fetch products with access filter
       const { data: productData, error: productError } = await supabase
         .from('product_data')
-        .select('id, sku, product_name, category, description, price, stock_quantity, image_urls, attributes_json, manufacturer_id')
+        .select(`
+          id, sku, product_name, category, description, price, stock_quantity, image_urls, attributes_json, manufacturer_id,
+          manufacturers!inner(company_name)
+        `)
         .in('id', productIds)
+        .in('manufacturer_id', accessibleManufacturerIds)
 
       if (productError) {
         throw productError
@@ -106,52 +114,37 @@ export default function RetailerComparePage() {
 
       if (!productData || productData.length === 0) {
         setProducts([])
+        // Remove all products from localStorage since none are accessible
+        clearComparison()
+        setProductIds([])
         setLoading(false)
         return
       }
 
-      // Get manufacturer names
-      const manufacturerIds = Array.from(new Set(productData.map(p => p.manufacturer_id)))
-      const { data: mfgData } = await supabase
-        .from('manufacturers')
-        .select('id, company_name')
-        .in('id', manufacturerIds)
+      // Build products array
+      const verifiedProducts: ComparisonProduct[] = productData.map((product: any) => ({
+        id: product.id,
+        sku: product.sku,
+        product_name: product.product_name,
+        manufacturer_name: product.manufacturers.company_name,
+        category: product.category,
+        description: product.description,
+        price: product.price,
+        stock_quantity: product.stock_quantity,
+        image_urls: product.image_urls,
+        attributes_json: product.attributes_json,
+      }))
 
-      const manufacturerMap = new Map((mfgData || []).map(m => [m.id, m.company_name]))
+      // Remove inaccessible products from localStorage
+      const accessibleIds = verifiedProducts.map(p => p.id)
+      const inaccessibleIds = productIds.filter(id => !accessibleIds.includes(id))
 
-      // Verify access and build products array
-      const verifiedProducts: ComparisonProduct[] = []
-      const invalidIds: string[] = []
-
-      for (const product of productData) {
-        // Check if retailer has access to this manufacturer
-        if (!accessibleManufacturerIds.includes(product.manufacturer_id)) {
-          invalidIds.push(product.id)
-          continue
-        }
-
-        verifiedProducts.push({
-          id: product.id,
-          sku: product.sku,
-          product_name: product.product_name,
-          manufacturer_name: manufacturerMap.get(product.manufacturer_id) || 'Unknown',
-          category: product.category,
-          description: product.description,
-          price: product.price,
-          stock_quantity: product.stock_quantity,
-          image_urls: product.image_urls,
-          attributes_json: product.attributes_json,
-        })
-      }
-
-      // Remove invalid products from comparison
-      if (invalidIds.length > 0) {
-        invalidIds.forEach(id => {
-          removeFromComparison(id)
-        })
-        const updatedIds = productIds.filter(id => !invalidIds.includes(id))
-        setProductIds(updatedIds)
+      if (inaccessibleIds.length > 0) {
+        const updatedIds = productIds.filter(id => !inaccessibleIds.includes(id))
         saveComparisonProducts(updatedIds)
+        setProductIds(updatedIds)
+        
+        alert(`${inaccessibleIds.length} product(s) removed from comparison due to access restrictions.`)
       }
 
       // Sort products to match the order in productIds

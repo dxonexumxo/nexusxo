@@ -11,6 +11,7 @@ const manufacturerMenuItems = [
   { name: 'Dashboard', path: '/manufacturer', icon: '📊' },
   { name: 'Products', path: '/manufacturer/products', icon: '📦' },
   { name: 'Upload', path: '/manufacturer/upload', icon: '⬆️' },
+  { name: 'Access Requests', path: '/manufacturer/access-requests', icon: '🔔' },
   { name: 'Analytics', path: '/manufacturer/analytics', icon: '📈' },
   { name: 'Settings', path: '/manufacturer/settings', icon: '⚙️' },
 ]
@@ -18,6 +19,7 @@ const manufacturerMenuItems = [
 const retailerMenuItems = [
   { name: 'Dashboard', path: '/retailer', icon: '📊' },
   { name: 'Browse Products', path: '/retailer/products', icon: '🛍️' },
+  { name: 'Manufacturers', path: '/retailer/manufacturers', icon: '🏭' },
   { name: 'Favorites', path: '/retailer/favorites', icon: '❤️' },
   { name: 'Compare', path: '/retailer/compare', icon: '⚖️' },
   { name: 'Downloads', path: '/retailer/browse', icon: '💾' },

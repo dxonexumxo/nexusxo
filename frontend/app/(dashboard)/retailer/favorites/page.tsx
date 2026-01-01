@@ -65,8 +65,132 @@ export default function RetailerFavoritesPage() {
     setError(null)
 
     try {
-      const data = await getFavoritesForRetailer(retailerId)
-      setFavorites(data)
+      // Step 1: Get accessible manufacturers
+      const { data: accessData, error: accessError } = await supabase
+        .from('retailer_data_access')
+        .select('manufacturer_id')
+        .eq('retailer_id', retailerId)
+        .eq('access_granted', true)
+
+      if (accessError) {
+        console.error('Error fetching access data:', accessError)
+        throw accessError
+      }
+
+      const accessibleManufacturerIds = accessData?.map(a => a.manufacturer_id) || []
+
+      if (accessibleManufacturerIds.length === 0) {
+        setFavorites([])
+        setLoading(false)
+        return
+      }
+
+      // Step 2: Fetch all favorite records for the retailer
+      const { data: favoritesData, error: favoritesError } = await supabase
+        .from('retailer_favorites')
+        .select('id, product_id, created_at')
+        .eq('retailer_id', retailerId)
+        .order('created_at', { ascending: false })
+
+      if (favoritesError) {
+        console.error('Error fetching favorites:', favoritesError)
+        console.error('Error details:', JSON.stringify(favoritesError, null, 2))
+        throw favoritesError
+      }
+
+      if (!favoritesData || favoritesData.length === 0) {
+        setFavorites([])
+        setLoading(false)
+        return
+      }
+
+      const productIds = favoritesData.map(f => f.product_id)
+
+      if (productIds.length === 0) {
+        setFavorites([])
+        setLoading(false)
+        return
+      }
+
+      // Step 3: Fetch product data
+      const { data: productsData, error: productsError } = await supabase
+        .from('product_data')
+        .select('id, sku, product_name, category, description, price, stock_quantity, image_urls, attributes_json, manufacturer_id')
+        .in('id', productIds)
+
+      if (productsError) {
+        console.error('Error fetching products:', productsError)
+        throw productsError
+      }
+
+      if (!productsData || productsData.length === 0) {
+        setFavorites([])
+        setLoading(false)
+        return
+      }
+
+      // Filter products by accessible manufacturers
+      const accessibleProducts = productsData.filter(p => 
+        accessibleManufacturerIds.includes(p.manufacturer_id)
+      )
+
+      if (accessibleProducts.length === 0) {
+        setFavorites([])
+        setLoading(false)
+        return
+      }
+
+      // Step 4: Get manufacturer names
+      const manufacturerIds = Array.from(new Set(accessibleProducts.map(p => p.manufacturer_id)))
+      const { data: manufacturersData, error: mfgError } = await supabase
+        .from('manufacturers')
+        .select('id, company_name')
+        .in('id', manufacturerIds)
+
+      if (mfgError) {
+        console.error('Error fetching manufacturers:', mfgError)
+        throw mfgError
+      }
+
+      // Step 5: Create maps for easy lookup
+      const manufacturerMap = new Map(
+        (manufacturersData || []).map(m => [m.id, m.company_name])
+      )
+      const favoriteDateMap = new Map(
+        favoritesData.map(f => [f.product_id, f.created_at])
+      )
+      const favoriteIdMap = new Map(
+        favoritesData.map(f => [f.product_id, f.id])
+      )
+
+      // Step 6: Combine and format the data
+      const formatted = accessibleProducts.map(product => {
+        const createdAt = favoriteDateMap.get(product.id) || new Date().toISOString()
+        return {
+          id: favoriteIdMap.get(product.id) || product.id,
+          product_id: product.id,
+          created_at: createdAt,
+          product_name: product.product_name,
+          sku: product.sku,
+          category: product.category,
+          description: product.description,
+          price: product.price,
+          stock_quantity: product.stock_quantity,
+          image_urls: product.image_urls,
+          attributes_json: product.attributes_json,
+          manufacturer_id: product.manufacturer_id,
+          manufacturer_name: manufacturerMap.get(product.manufacturer_id) || 'Unknown'
+        }
+      })
+
+      // Sort by created_at date (most recent first)
+      formatted.sort((a, b) => {
+        const dateA = new Date(a.created_at).getTime()
+        const dateB = new Date(b.created_at).getTime()
+        return dateB - dateA
+      })
+
+      setFavorites(formatted)
     } catch (err: any) {
       console.error('Error fetching favorites:', err)
       setError('Failed to load favorites. Please try again.')

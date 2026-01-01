@@ -10,6 +10,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const router = useRouter()
   const pathname = usePathname()
   const [userRole, setUserRole] = useState<'manufacturer' | 'retailer' | null>(null)
+  const [userId, setUserId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -20,6 +21,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         router.push('/')
         return
       }
+
+      setUserId(user.id)
 
       // Determine role
       const { data: mfg } = await supabase
@@ -63,7 +66,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <TopNav userRole={userRole} />
+      <TopNav userRole={userRole} userId={userId} />
       <div className="flex">
         <Sidebar userRole={userRole} currentPath={pathname} />
         <main className="flex-1 ml-64 mt-16 p-8">
