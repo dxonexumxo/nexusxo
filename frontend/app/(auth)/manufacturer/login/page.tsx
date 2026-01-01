@@ -30,7 +30,7 @@ export default function ManufacturerLoginPage() {
       }
 
       if (data.user) {
-        router.push('/manufacturer/dashboard')
+        router.push('/manufacturer')
       }
     } catch (err) {
       setError('An unexpected error occurred. Please try again.')

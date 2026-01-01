@@ -429,7 +429,7 @@ export default function RetailerBrowsePage() {
             </div>
             {manufacturers.length === 0 && (
               <Link
-                href="/retailer/dashboard"
+                href="/retailer"
                 className="px-4 py-2 bg-indigo-600 text-white rounded-md text-sm font-medium hover:bg-indigo-700"
               >
                 Request Access
@@ -460,7 +460,7 @@ export default function RetailerBrowsePage() {
             </p>
             <div className="mt-6">
               <Link
-                href="/retailer/dashboard"
+                href="/retailer"
                 className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700"
               >
                 Go to Dashboard

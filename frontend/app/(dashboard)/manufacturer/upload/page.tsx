@@ -593,7 +593,7 @@ export default function ManufacturerUploadPage() {
                 >
                   Upload Another File
                 </button>
-                <button onClick={() => router.push('/manufacturer/dashboard')} className="px-6 py-2 bg-indigo-600 text-white rounded">
+                <button onClick={() => router.push('/manufacturer')} className="px-6 py-2 bg-indigo-600 text-white rounded">
                   Go to Dashboard
                 </button>
               </div>

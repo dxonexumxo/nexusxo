@@ -153,7 +153,7 @@ export default function RetailerFavoritesPage() {
           <nav className="flex mb-4" aria-label="Breadcrumb">
             <ol className="flex items-center space-x-2 text-sm text-gray-500">
               <li>
-                <Link href="/retailer/dashboard" className="hover:text-gray-700">
+                <Link href="/retailer" className="hover:text-gray-700">
                   Dashboard
                 </Link>
               </li>

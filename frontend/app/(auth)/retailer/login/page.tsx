@@ -30,7 +30,7 @@ export default function RetailerLoginPage() {
       }
 
       if (data.user) {
-        router.push('/retailer/dashboard')
+        router.push('/retailer')
       }
     } catch (err) {
       setError('An unexpected error occurred. Please try again.')

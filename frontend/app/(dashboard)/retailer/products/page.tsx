@@ -402,7 +402,7 @@ export default function RetailerProductsPage() {
           <nav className="flex mb-4" aria-label="Breadcrumb">
             <ol className="flex items-center space-x-2 text-sm text-gray-500">
               <li>
-                <Link href="/retailer/dashboard" className="hover:text-gray-700">
+                <Link href="/retailer" className="hover:text-gray-700">
                   Dashboard
                 </Link>
               </li>
@@ -499,7 +499,7 @@ export default function RetailerProductsPage() {
             </p>
             <div className="mt-6">
               <Link
-                href="/retailer/dashboard"
+                href="/retailer"
                 className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700"
               >
                 Back to Dashboard
