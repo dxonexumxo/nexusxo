@@ -1,0 +1,67 @@
+{
+  "info": {
+    "name": "NexusXO API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "nx_526ec12314d4f124d53209f2d57c5268c61107196e099805a45a76f3fa606178",
+        "type": "string"
+      }
+    ]
+  },
+  "item": [
+    {
+      "name": "List Products",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://localhost:3000/api/v1/products?page=1&limit=50",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "3000",
+          "path": ["api", "v1", "products"],
+          "query": [
+            {"key": "page", "value": "1"},
+            {"key": "limit", "value": "50"}
+          ]
+        }
+      }
+    },
+    {
+      "name": "Get Product by ID",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "http://localhost:3000/api/v1/products/{{product_id}}"
+      }
+    },
+    {
+      "name": "List Manufacturers",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "http://localhost:3000/api/v1/manufacturers"
+      }
+    },
+    {
+      "name": "Search Products",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://localhost:3000/api/v1/products?search=laptop",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "3000",
+          "path": ["api", "v1", "products"],
+          "query": [{"key": "search", "value": "laptop"}]
+        }
+      }
+    }
+  ]
+}
