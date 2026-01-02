@@ -86,7 +86,7 @@ export default function RetailerProductDetailPage() {
 
       setRetailerId(user.id)
 
-      // Fetch product first
+      // Fetch product first - use maybeSingle to avoid 406 errors
       const { data: product, error: productError } = await supabase
         .from('product_data')
         .select(`
@@ -94,24 +94,58 @@ export default function RetailerProductDetailPage() {
           manufacturers!inner(id, company_name, industry, email)
         `)
         .eq('id', productId)
-        .single()
+        .maybeSingle()
 
-      if (productError || !product) {
+      if (productError) {
+        console.error('Error fetching product:', productError)
+        setError('Error loading product: ' + productError.message)
+        setLoading(false)
+        return
+      }
+
+      if (!product) {
         setError('Product not found')
         setLoading(false)
         return
       }
 
-      // CHECK ACCESS: Does retailer have access to this manufacturer?
+      // Debug: Log product structure
+      console.log('Product data received:', { 
+        hasManufacturerId: !!product.manufacturer_id,
+        hasManufacturers: !!product.manufacturers,
+        manufacturerId: product.manufacturer_id,
+        manufacturersId: product.manufacturers?.id,
+        productKeys: Object.keys(product)
+      })
+
+      // Get manufacturer_id - it should be on product directly, but if join interferes, get from manufacturers
+      const manufacturerId = product.manufacturer_id || product.manufacturers?.id
+      
+      if (!manufacturerId) {
+        console.error('Manufacturer ID missing from product data:', product)
+        setError('Product data incomplete: manufacturer ID missing')
+        setLoading(false)
+        return
+      }
+
+      // CHECK ACCESS: Does retailer have access to this manufacturer? - use maybeSingle to avoid 406 errors
       const { data: accessData, error: accessError } = await supabase
         .from('retailer_data_access')
         .select('access_granted')
         .eq('retailer_id', user.id)
-        .eq('manufacturer_id', product.manufacturer_id)
-        .single()
+        .eq('manufacturer_id', manufacturerId)
+        .maybeSingle()
+
+      // If access query failed, show error
+      if (accessError) {
+        console.error('Error checking access:', accessError)
+        setError('Error checking access: ' + accessError.message)
+        setLoading(false)
+        return
+      }
 
       // If no access or access revoked, show error
-      if (accessError || !accessData || !accessData.access_granted) {
+      if (!accessData || !accessData.access_granted) {
         setError('access_denied')
         setLoading(false)
         return
@@ -120,14 +154,15 @@ export default function RetailerProductDetailPage() {
       // Access granted, load product
       setProduct({
         ...product,
-        manufacturer_name: product.manufacturers.company_name,
-        manufacturer_industry: product.manufacturers.industry || null,
-        manufacturer_email: product.manufacturers.email || null,
+        manufacturer_id: manufacturerId, // Ensure manufacturer_id is set
+        manufacturer_name: product.manufacturers?.company_name || null,
+        manufacturer_industry: product.manufacturers?.industry || null,
+        manufacturer_email: product.manufacturers?.email || null,
       })
       setMainImage(product.image_urls?.[0] || null)
 
       // Fetch related data
-      await fetchRelatedProducts(product.manufacturer_id, product.category || null)
+      await fetchRelatedProducts(manufacturerId, product.category || null)
       await fetchPriceHistory(productId)
       await checkIfFavorited(user.id, productId)
 
