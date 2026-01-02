@@ -132,9 +132,9 @@ export async function isProductFavorite(retailerId: string, productId: string): 
       .select('id')
       .eq('retailer_id', retailerId)
       .eq('product_id', productId)
-      .single()
+      .maybeSingle() // Use maybeSingle instead of single to avoid errors when no rows
 
-    if (error && error.code !== 'PGRST116') { // PGRST116 = no rows returned
+    if (error) {
       console.error('Error checking favorite:', error)
       throw error
     }
@@ -159,10 +159,24 @@ export async function addFavorite(retailerId: string, productId: string): Promis
       })
 
     if (error) {
+      // If it's a conflict/duplicate error, the favorite already exists - that's OK, treat as success
+      if (error.code === '23505' || error.code === 'PGRST301' || error.status === 409 || 
+          error.message?.includes('duplicate') || error.message?.includes('unique constraint') ||
+          error.message?.includes('already exists')) {
+        // Already favorited, return successfully (this is the desired state)
+        return
+      }
       console.error('Error adding favorite:', error)
       throw error
     }
-  } catch (error) {
+  } catch (error: any) {
+    // Handle network errors or other exceptions
+    if (error?.code === '23505' || error?.code === 'PGRST301' || error?.status === 409 ||
+        error?.message?.includes('duplicate') || error?.message?.includes('unique constraint') ||
+        error?.message?.includes('already exists')) {
+      // Already favorited, return successfully
+      return
+    }
     console.error('Error in addFavorite:', error)
     throw error
   }

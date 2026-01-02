@@ -226,16 +226,26 @@ export default function RetailerFavoritesPage() {
     setCurrentPage(1) // Reset to first page when filters change
   }
 
-  const handleRemoveFavorite = async (productId: string) => {
+  const handleRemoveFavorite = async (favoriteRecordId: string) => {
     if (!retailerId) return
 
     try {
-      await removeFavorite(retailerId, productId)
-      // Optimistically update UI
-      setFavorites(prev => prev.filter(f => f.id !== productId))
+      // Delete by the favorite record ID (primary key)
+      const { error } = await supabase
+        .from('retailer_favorites')
+        .delete()
+        .eq('id', favoriteRecordId)
+
+      if (error) {
+        console.error('Error removing favorite:', error)
+        throw error
+      }
+
+      // Optimistically update UI - remove the favorite by its record ID
+      setFavorites(prev => prev.filter(f => f.id !== favoriteRecordId))
     } catch (err: any) {
       console.error('Error removing favorite:', err)
-      // Refetch on error
+      // Refetch on error to ensure UI is in sync
       fetchFavorites()
     }
   }
@@ -419,12 +429,13 @@ export default function RetailerFavoritesPage() {
                         {/* Favorite Button - Top Right */}
                         <div className="absolute top-2 right-2 z-10">
                           <FavoriteButton
-                            productId={product.id}
+                            productId={product.product_id}
                             retailerId={retailerId}
                             initialIsFavorite={true}
                             compact={true}
                             onChange={(isFavorite) => {
                               if (!isFavorite) {
+                                // Use the favorite record ID for removal
                                 handleRemoveFavorite(product.id)
                               }
                             }}
