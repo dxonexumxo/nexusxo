@@ -67,12 +67,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   return (
     <div className="min-h-screen bg-gray-50">
       <TopNav userRole={userRole} userId={userId} />
-      <div className="flex">
-        <Sidebar userRole={userRole} currentPath={pathname} />
-        <main className="flex-1 ml-64 mt-16 p-8">
-          {children}
-        </main>
-      </div>
+      <Sidebar userRole={userRole} currentPath={pathname} />
+      <main className="fixed top-16 left-0 right-0 bottom-0 transition-all duration-300 overflow-y-auto p-8" style={{ left: 'var(--sidebar-width)' }}>
+        {children}
+      </main>
       {userRole === 'retailer' && <ComparisonBadge />}
     </div>
   )
