@@ -1,0 +1,17 @@
+{
+  "name": "nexusxo-mcp-server",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Model Context Protocol server for NexusXO product data",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^0.5.0",
+    "@supabase/supabase-js": "^2.39.0"
+  },
+  "keywords": ["mcp", "model-context-protocol", "nexusxo", "api"],
+  "author": "NexusXO",
+  "license": "MIT"
+}

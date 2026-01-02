@@ -13,7 +13,7 @@ const manufacturerMenuItems = [
   { name: 'Upload', path: '/manufacturer/upload', icon: '⬆️' },
   { name: 'Access Requests', path: '/manufacturer/access-requests', icon: '🔔' },
   { name: 'Analytics', path: '/manufacturer/analytics', icon: '📈' },
-  { name: 'Settings', path: '/manufacturer/settings', icon: '⚙️' },
+  { name: 'API Tokens', path: '/manufacturer/api-tokens', icon: '🔑' },
 ]
 
 const retailerMenuItems = [
@@ -23,7 +23,7 @@ const retailerMenuItems = [
   { name: 'Favorites', path: '/retailer/favorites', icon: '❤️' },
   { name: 'Compare', path: '/retailer/compare', icon: '⚖️' },
   { name: 'Downloads', path: '/retailer/browse', icon: '💾' },
-  { name: 'Settings', path: '/retailer/settings', icon: '⚙️' },
+  { name: 'API Tokens', path: '/retailer/api-tokens', icon: '🔑' },
 ]
 
 export default function Sidebar({ userRole, currentPath }: SidebarProps) {
