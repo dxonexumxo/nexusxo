@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/utils/supabase'
+import ManufacturerAvatar from '@/components/ManufacturerAvatar'
 import { 
   ArrowDownTrayIcon, 
   DocumentArrowDownIcon,
@@ -20,6 +21,7 @@ import {
 interface Manufacturer {
   id: string
   company_name: string
+  logo_url: string | null
 }
 
 interface DownloadProfile {
@@ -174,7 +176,7 @@ export default function RetailerDownloadsPage() {
       const manufacturerIds = accessData.map(a => a.manufacturer_id)
       const { data: manufacturersData } = await supabase
         .from('manufacturers')
-        .select('id, company_name')
+        .select('id, company_name, logo_url')
         .in('id', manufacturerIds)
         .order('company_name')
 
@@ -724,14 +726,25 @@ export default function RetailerDownloadsPage() {
                 >
                   <option value="">Select Manufacturer</option>
                   {manufacturers.map(mfg => (
-                    <option key={mfg.id} value={mfg.id}>{mfg.company_name} ({mfg.id})</option>
+                    <option key={mfg.id} value={mfg.id}>{mfg.company_name}</option>
                   ))}
                 </select>
-                {selectedManufacturer && (
-                  <p className="mt-2 text-sm text-gray-500">
-                    Selected: {manufacturers.find(m => m.id === selectedManufacturer)?.company_name || selectedManufacturer}
-                  </p>
-                )}
+                {selectedManufacturer && (() => {
+                  const selectedMfg = manufacturers.find(m => m.id === selectedManufacturer)
+                  return selectedMfg ? (
+                    <div className="mt-3 flex items-center gap-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
+                      <ManufacturerAvatar 
+                        logoUrl={selectedMfg.logo_url} 
+                        companyName={selectedMfg.company_name} 
+                        size="md"
+                      />
+                      <div>
+                        <p className="text-sm font-medium text-gray-900">{selectedMfg.company_name}</p>
+                        <p className="text-xs text-gray-500">Manufacturer selected</p>
+                      </div>
+                    </div>
+                  ) : null
+                })()}
               </div>
             )}
 

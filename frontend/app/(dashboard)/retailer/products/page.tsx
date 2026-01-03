@@ -7,6 +7,13 @@ import { supabase } from '@/utils/supabase'
 import { addToComparison, getComparisonProducts, MAX_PRODUCTS } from '@/utils/comparison'
 import { getFavoriteProductIds } from '@/utils/favorites'
 import FavoriteButton from '@/components/FavoriteButton'
+import { 
+  Squares2X2Icon, 
+  ListBulletIcon, 
+  TableCellsIcon,
+  ChevronUpIcon,
+  ChevronDownIcon
+} from '@heroicons/react/24/outline'
 
 type Product = {
   id: string
@@ -29,6 +36,9 @@ type Manufacturer = {
 
 type StockFilter = 'all' | 'in_stock' | 'low_stock' | 'out_of_stock'
 type SortOption = 'name_asc' | 'name_desc' | 'price_asc' | 'price_desc'
+type ViewMode = 'tile' | 'list' | 'table'
+type TableSortField = 'product_name' | 'sku' | 'category' | 'price' | 'stock_quantity' | 'manufacturer_name'
+type TableSortDirection = 'asc' | 'desc'
 
 export default function RetailerProductsPage() {
   const router = useRouter()
@@ -46,6 +56,9 @@ export default function RetailerProductsPage() {
   const [priceMax, setPriceMax] = useState<string>('')
   const [stockFilter, setStockFilter] = useState<StockFilter>('all')
   const [sortOption, setSortOption] = useState<SortOption>('name_asc')
+  const [viewMode, setViewMode] = useState<ViewMode>('tile')
+  const [tableSortField, setTableSortField] = useState<TableSortField>('product_name')
+  const [tableSortDirection, setTableSortDirection] = useState<TableSortDirection>('asc')
   const [currentPage, setCurrentPage] = useState(1)
   const [totalProducts, setTotalProducts] = useState(0)
   const [totalCategories, setTotalCategories] = useState(0)
@@ -98,7 +111,7 @@ export default function RetailerProductsPage() {
     if (accessibleManufacturerIds.length > 0) {
       fetchProducts()
     }
-  }, [currentPage, selectedManufacturer, categoryFilter, stockFilter, sortOption, searchQuery, priceMin, priceMax])
+  }, [currentPage, selectedManufacturer, categoryFilter, stockFilter, sortOption, searchQuery, priceMin, priceMax, viewMode, tableSortField, tableSortDirection])
 
   useEffect(() => {
     // Load comparison count from localStorage
@@ -222,26 +235,32 @@ export default function RetailerProductsPage() {
         query = query.or('stock_quantity.is.null,stock_quantity.lt.1')
       }
 
-      // Apply sorting
-      switch (sortOption) {
-        case 'name_asc':
-          query = query.order('product_name', { ascending: true })
-          break
-        case 'name_desc':
-          query = query.order('product_name', { ascending: false })
-          break
-        case 'price_asc':
-          query = query.order('price', { ascending: true, nullsFirst: false })
-          break
-        case 'price_desc':
-          query = query.order('price', { ascending: false, nullsFirst: false })
-          break
+      // Apply sorting (for tile and list views, table view uses client-side sorting)
+      if (viewMode !== 'table') {
+        switch (sortOption) {
+          case 'name_asc':
+            query = query.order('product_name', { ascending: true })
+            break
+          case 'name_desc':
+            query = query.order('product_name', { ascending: false })
+            break
+          case 'price_asc':
+            query = query.order('price', { ascending: true, nullsFirst: false })
+            break
+          case 'price_desc':
+            query = query.order('price', { ascending: false, nullsFirst: false })
+            break
+        }
+      } else {
+        // For table view, fetch all products without sorting (we'll sort client-side)
+        query = query.order('product_name', { ascending: true })
       }
 
-      // Apply pagination
+      // Apply pagination (only for tile and list views)
+      const rangeEnd = viewMode === 'table' ? 999999 : (currentPage * productsPerPage - 1)
       const { data, error, count } = await query.range(
-        (currentPage - 1) * productsPerPage,
-        currentPage * productsPerPage - 1
+        viewMode === 'table' ? 0 : (currentPage - 1) * productsPerPage,
+        rangeEnd
       )
 
       if (error) {
@@ -265,7 +284,41 @@ export default function RetailerProductsPage() {
           manufacturer_name: manufacturerMap.get(product.manufacturer_id) || 'Unknown',
         }))
 
-        setProducts(productsWithManufacturers)
+        // Apply client-side sorting for table view
+        if (viewMode === 'table') {
+          const sorted = [...productsWithManufacturers].sort((a, b) => {
+            let aValue: any = a[tableSortField]
+            let bValue: any = b[tableSortField]
+
+            // Handle null values
+            if (aValue === null || aValue === undefined) aValue = ''
+            if (bValue === null || bValue === undefined) bValue = ''
+
+            // Handle numeric fields
+            if (tableSortField === 'price' || tableSortField === 'stock_quantity') {
+              aValue = aValue || 0
+              bValue = bValue || 0
+            }
+
+            // Handle string fields
+            if (typeof aValue === 'string') {
+              aValue = aValue.toLowerCase()
+              bValue = bValue.toLowerCase()
+            }
+
+            if (aValue < bValue) return tableSortDirection === 'asc' ? -1 : 1
+            if (aValue > bValue) return tableSortDirection === 'asc' ? 1 : -1
+            return 0
+          })
+
+          // Apply pagination for table view
+          const start = (currentPage - 1) * productsPerPage
+          const end = start + productsPerPage
+          setProducts(sorted.slice(start, end))
+        } else {
+          setProducts(productsWithManufacturers)
+        }
+        
         setTotalProducts(count || 0)
       }
     } catch (err) {
@@ -382,6 +435,25 @@ export default function RetailerProductsPage() {
 
   const handleClearSelection = () => {
     setSelectedProducts(new Set())
+  }
+
+  const handleTableSort = (field: TableSortField) => {
+    if (tableSortField === field) {
+      setTableSortDirection(tableSortDirection === 'asc' ? 'desc' : 'asc')
+    } else {
+      setTableSortField(field)
+      setTableSortDirection('asc')
+    }
+    setCurrentPage(1)
+  }
+
+  const renderSortIcon = (field: TableSortField) => {
+    if (tableSortField !== field) {
+      return <ChevronUpIcon className="w-4 h-4 text-gray-400" />
+    }
+    return tableSortDirection === 'asc' 
+      ? <ChevronUpIcon className="w-4 h-4 text-indigo-600" />
+      : <ChevronDownIcon className="w-4 h-4 text-indigo-600" />
   }
 
   const totalPages = Math.ceil(totalProducts / productsPerPage)
@@ -595,21 +667,60 @@ export default function RetailerProductsPage() {
                   </select>
                 </div>
 
-                {/* Sort */}
-                <div>
-                  <select
-                    value={sortOption}
-                    onChange={(e) => {
-                      setSortOption(e.target.value as SortOption)
-                      setCurrentPage(1)
-                    }}
-                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                {/* Sort (only for tile and list views) */}
+                {viewMode !== 'table' && (
+                  <div>
+                    <select
+                      value={sortOption}
+                      onChange={(e) => {
+                        setSortOption(e.target.value as SortOption)
+                        setCurrentPage(1)
+                      }}
+                      className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                    >
+                      <option value="name_asc">Name A-Z</option>
+                      <option value="name_desc">Name Z-A</option>
+                      <option value="price_asc">Price Low-High</option>
+                      <option value="price_desc">Price High-Low</option>
+                    </select>
+                  </div>
+                )}
+
+                {/* View Toggle */}
+                <div className="flex items-center gap-2 border border-gray-300 rounded-md p-1 bg-white">
+                  <button
+                    onClick={() => setViewMode('tile')}
+                    className={`p-2 rounded transition-colors ${
+                      viewMode === 'tile'
+                        ? 'bg-indigo-100 text-indigo-600'
+                        : 'text-gray-600 hover:bg-gray-100'
+                    }`}
+                    title="Tile View"
                   >
-                    <option value="name_asc">Name A-Z</option>
-                    <option value="name_desc">Name Z-A</option>
-                    <option value="price_asc">Price Low-High</option>
-                    <option value="price_desc">Price High-Low</option>
-                  </select>
+                    <Squares2X2Icon className="w-5 h-5" />
+                  </button>
+                  <button
+                    onClick={() => setViewMode('list')}
+                    className={`p-2 rounded transition-colors ${
+                      viewMode === 'list'
+                        ? 'bg-indigo-100 text-indigo-600'
+                        : 'text-gray-600 hover:bg-gray-100'
+                    }`}
+                    title="List View"
+                  >
+                    <ListBulletIcon className="w-5 h-5" />
+                  </button>
+                  <button
+                    onClick={() => setViewMode('table')}
+                    className={`p-2 rounded transition-colors ${
+                      viewMode === 'table'
+                        ? 'bg-indigo-100 text-indigo-600'
+                        : 'text-gray-600 hover:bg-gray-100'
+                    }`}
+                    title="Table View"
+                  >
+                    <TableCellsIcon className="w-5 h-5" />
+                  </button>
                 </div>
               </div>
 
@@ -644,7 +755,7 @@ export default function RetailerProductsPage() {
               </div>
             </div>
 
-            {/* Products Grid */}
+            {/* Products Display */}
             {productsLoading ? (
               <div className="text-center py-12">
                 <div className="text-gray-600">Loading products...</div>
@@ -711,112 +822,393 @@ export default function RetailerProductsPage() {
                   </div>
                 )}
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mb-8">
-                  {products.map((product) => {
-                    const stockStatus = getStockStatus(product.stock_quantity)
-                    const imageUrl = product.image_urls && product.image_urls.length > 0 ? product.image_urls[0] : null
-                    const isSelected = selectedProducts.has(product.id)
+                {/* Tile View */}
+                {viewMode === 'tile' && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mb-8">
+                    {products.map((product) => {
+                      const stockStatus = getStockStatus(product.stock_quantity)
+                      const imageUrl = product.image_urls && product.image_urls.length > 0 ? product.image_urls[0] : null
+                      const isSelected = selectedProducts.has(product.id)
 
-                    return (
-                      <div
-                        key={product.id}
-                        className={`bg-white rounded-lg shadow hover:shadow-lg transition p-4 relative ${isSelected ? 'ring-2 ring-indigo-500' : ''}`}
-                      >
-                        {/* Favorite Button - Top Left */}
-                        <div className="absolute top-2 left-2 z-10">
-                          <FavoriteButton
-                            productId={product.id}
-                            retailerId={retailerId}
-                            initialIsFavorite={favoriteProductIds.has(product.id)}
-                            compact={true}
-                            onChange={(isFavorite) => {
-                              setFavoriteProductIds(prev => {
-                                const newSet = new Set(prev)
-                                if (isFavorite) {
-                                  newSet.add(product.id)
-                                } else {
-                                  newSet.delete(product.id)
-                                }
-                                return newSet
-                              })
-                            }}
-                          />
-                        </div>
-
-                        {/* Selection Checkbox - Top Right */}
-                        <div className="absolute top-2 right-2 z-10">
-                          <input
-                            type="checkbox"
-                            checked={isSelected}
-                            onChange={() => handleToggleSelection(product.id)}
-                            className="w-5 h-5 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
-                          />
-                        </div>
-
-                        {/* Product Image */}
-                        <div className="aspect-square bg-gray-100 rounded mb-3 overflow-hidden">
-                          {imageUrl ? (
-                            <img
-                              src={imageUrl}
-                              alt={product.product_name}
-                              className="w-full h-full object-cover"
+                      return (
+                        <div
+                          key={product.id}
+                          className={`bg-white rounded-lg shadow hover:shadow-lg transition p-4 relative ${isSelected ? 'ring-2 ring-indigo-500' : ''}`}
+                        >
+                          {/* Favorite Button - Top Left */}
+                          <div className="absolute top-2 left-2 z-10">
+                            <FavoriteButton
+                              productId={product.id}
+                              retailerId={retailerId}
+                              initialIsFavorite={favoriteProductIds.has(product.id)}
+                              compact={true}
+                              onChange={(isFavorite) => {
+                                setFavoriteProductIds(prev => {
+                                  const newSet = new Set(prev)
+                                  if (isFavorite) {
+                                    newSet.add(product.id)
+                                  } else {
+                                    newSet.delete(product.id)
+                                  }
+                                  return newSet
+                                })
+                              }}
                             />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center text-gray-400">
-                              <svg className="w-16 h-16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth={2}
-                                  d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
-                                />
-                              </svg>
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Product Info */}
-                        <div className="space-y-2">
-                          {/* Manufacturer */}
-                          <div className="text-xs text-gray-500">{product.manufacturer_name}</div>
-
-                          {/* Product Name */}
-                          <h3 className="font-semibold text-gray-900 line-clamp-2 min-h-[2.5rem]">
-                            {product.product_name}
-                          </h3>
-
-                          {/* SKU */}
-                          <div className="text-xs text-gray-500">SKU: {product.sku}</div>
-
-                          {/* Category */}
-                          {product.category && (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800">
-                              {product.category}
-                            </span>
-                          )}
-
-                          {/* Price and Stock */}
-                          <div className="flex items-center justify-between pt-2">
-                            <span className="text-xl font-bold text-indigo-600">
-                              {formatPrice(product.price)}
-                            </span>
-                            <span className={`text-xs px-2 py-1 rounded ${stockStatus.className}`}>
-                              {stockStatus.label}
-                            </span>
                           </div>
 
-                          {/* View Details Button */}
-                          <Link
-                            href={`/retailer/products/${product.id}`}
-                            className="block w-full text-center bg-indigo-600 text-white py-2 rounded hover:bg-indigo-700 transition-colors mt-3"
-                          >
-                            View Details
-                          </Link>
+                          {/* Selection Checkbox - Top Right */}
+                          <div className="absolute top-2 right-2 z-10">
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={() => handleToggleSelection(product.id)}
+                              className="w-5 h-5 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                            />
+                          </div>
+
+                          {/* Product Image */}
+                          <div className="aspect-square bg-gray-100 rounded mb-3 overflow-hidden">
+                            {imageUrl ? (
+                              <img
+                                src={imageUrl}
+                                alt={product.product_name}
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center text-gray-400">
+                                <svg className="w-16 h-16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                                  />
+                                </svg>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Product Info */}
+                          <div className="space-y-2">
+                            {/* Manufacturer */}
+                            <div className="text-xs text-gray-500">{product.manufacturer_name}</div>
+
+                            {/* Product Name */}
+                            <h3 className="font-semibold text-gray-900 line-clamp-2 min-h-[2.5rem]">
+                              {product.product_name}
+                            </h3>
+
+                            {/* SKU */}
+                            <div className="text-xs text-gray-500">SKU: {product.sku}</div>
+
+                            {/* Category */}
+                            {product.category && (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800">
+                                {product.category}
+                              </span>
+                            )}
+
+                            {/* Price and Stock */}
+                            <div className="flex items-center justify-between pt-2">
+                              <span className="text-xl font-bold text-indigo-600">
+                                {formatPrice(product.price)}
+                              </span>
+                              <span className={`text-xs px-2 py-1 rounded ${stockStatus.className}`}>
+                                {stockStatus.label}
+                              </span>
+                            </div>
+
+                            {/* View Details Button */}
+                            <Link
+                              href={`/retailer/products/${product.id}`}
+                              className="block w-full text-center bg-indigo-600 text-white py-2 rounded hover:bg-indigo-700 transition-colors mt-3"
+                            >
+                              View Details
+                            </Link>
+                          </div>
                         </div>
-                      </div>
-                    )
-                  })}
-                </div>
+                      )
+                    })}
+                  </div>
+                )}
+
+                {/* List View */}
+                {viewMode === 'list' && (
+                  <div className="space-y-4 mb-8">
+                    {products.map((product) => {
+                      const stockStatus = getStockStatus(product.stock_quantity)
+                      const imageUrl = product.image_urls && product.image_urls.length > 0 ? product.image_urls[0] : null
+                      const isSelected = selectedProducts.has(product.id)
+
+                      return (
+                        <div
+                          key={product.id}
+                          className={`bg-white rounded-lg shadow hover:shadow-lg transition p-4 relative ${isSelected ? 'ring-2 ring-indigo-500' : ''}`}
+                        >
+                          <div className="flex items-start gap-4">
+                            {/* Product Image */}
+                            <div className="flex-shrink-0 w-32 h-32 bg-gray-100 rounded overflow-hidden">
+                              {imageUrl ? (
+                                <img
+                                  src={imageUrl}
+                                  alt={product.product_name}
+                                  className="w-full h-full object-cover"
+                                />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center text-gray-400">
+                                  <svg className="w-12 h-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      strokeWidth={2}
+                                      d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                                    />
+                                  </svg>
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Product Info */}
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-start justify-between gap-4">
+                                <div className="flex-1">
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <FavoriteButton
+                                      productId={product.id}
+                                      retailerId={retailerId}
+                                      initialIsFavorite={favoriteProductIds.has(product.id)}
+                                      compact={true}
+                                      onChange={(isFavorite) => {
+                                        setFavoriteProductIds(prev => {
+                                          const newSet = new Set(prev)
+                                          if (isFavorite) {
+                                            newSet.add(product.id)
+                                          } else {
+                                            newSet.delete(product.id)
+                                          }
+                                          return newSet
+                                        })
+                                      }}
+                                    />
+                                    <div className="text-xs text-gray-500">{product.manufacturer_name}</div>
+                                  </div>
+                                  <h3 className="text-lg font-semibold text-gray-900 mb-1">
+                                    {product.product_name}
+                                  </h3>
+                                  <div className="text-sm text-gray-500 mb-2">SKU: {product.sku}</div>
+                                  {product.category && (
+                                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800 mb-2">
+                                      {product.category}
+                                    </span>
+                                  )}
+                                  <div className="flex items-center gap-4 mt-2">
+                                    <span className="text-xl font-bold text-indigo-600">
+                                      {formatPrice(product.price)}
+                                    </span>
+                                    <span className={`text-xs px-2 py-1 rounded ${stockStatus.className}`}>
+                                      {stockStatus.label}
+                                    </span>
+                                  </div>
+                                </div>
+                                <div className="flex items-start gap-2">
+                                  <input
+                                    type="checkbox"
+                                    checked={isSelected}
+                                    onChange={() => handleToggleSelection(product.id)}
+                                    className="w-5 h-5 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500 mt-1"
+                                  />
+                                  <Link
+                                    href={`/retailer/products/${product.id}`}
+                                    className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 transition-colors text-sm"
+                                  >
+                                    View Details
+                                  </Link>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+
+                {/* Table View */}
+                {viewMode === 'table' && (
+                  <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden mb-8">
+                    <div className="overflow-x-auto">
+                      <table className="min-w-full divide-y divide-gray-200">
+                        <thead className="bg-gray-50">
+                          <tr>
+                            <th className="px-6 py-3 text-left">
+                              <input
+                                type="checkbox"
+                                className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    setSelectedProducts(new Set(products.map(p => p.id)))
+                                  } else {
+                                    setSelectedProducts(new Set())
+                                  }
+                                }}
+                                checked={selectedProducts.size > 0 && selectedProducts.size === products.length}
+                              />
+                            </th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              Image
+                            </th>
+                            <th 
+                              className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                              onClick={() => handleTableSort('product_name')}
+                            >
+                              <div className="flex items-center gap-1">
+                                Product Name
+                                {renderSortIcon('product_name')}
+                              </div>
+                            </th>
+                            <th 
+                              className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                              onClick={() => handleTableSort('sku')}
+                            >
+                              <div className="flex items-center gap-1">
+                                SKU
+                                {renderSortIcon('sku')}
+                              </div>
+                            </th>
+                            <th 
+                              className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                              onClick={() => handleTableSort('category')}
+                            >
+                              <div className="flex items-center gap-1">
+                                Category
+                                {renderSortIcon('category')}
+                              </div>
+                            </th>
+                            <th 
+                              className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                              onClick={() => handleTableSort('manufacturer_name')}
+                            >
+                              <div className="flex items-center gap-1">
+                                Manufacturer
+                                {renderSortIcon('manufacturer_name')}
+                              </div>
+                            </th>
+                            <th 
+                              className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                              onClick={() => handleTableSort('price')}
+                            >
+                              <div className="flex items-center gap-1">
+                                Price
+                                {renderSortIcon('price')}
+                              </div>
+                            </th>
+                            <th 
+                              className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                              onClick={() => handleTableSort('stock_quantity')}
+                            >
+                              <div className="flex items-center gap-1">
+                                Stock
+                                {renderSortIcon('stock_quantity')}
+                              </div>
+                            </th>
+                            <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              Actions
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                          {products.map((product) => {
+                            const stockStatus = getStockStatus(product.stock_quantity)
+                            const imageUrl = product.image_urls && product.image_urls.length > 0 ? product.image_urls[0] : null
+                            const isSelected = selectedProducts.has(product.id)
+
+                            return (
+                              <tr key={product.id} className={isSelected ? 'bg-indigo-50' : 'hover:bg-gray-50'}>
+                                <td className="px-6 py-4 whitespace-nowrap">
+                                  <input
+                                    type="checkbox"
+                                    checked={isSelected}
+                                    onChange={() => handleToggleSelection(product.id)}
+                                    className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                                  />
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap">
+                                  <div className="w-16 h-16 bg-gray-100 rounded overflow-hidden flex-shrink-0">
+                                    {imageUrl ? (
+                                      <img
+                                        src={imageUrl}
+                                        alt={product.product_name}
+                                        className="w-full h-full object-cover"
+                                      />
+                                    ) : (
+                                      <div className="w-full h-full flex items-center justify-center text-gray-400">
+                                        <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                          <path
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                            strokeWidth={2}
+                                            d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                                          />
+                                        </svg>
+                                      </div>
+                                    )}
+                                  </div>
+                                </td>
+                                <td className="px-6 py-4">
+                                  <div className="flex items-center gap-2">
+                                    <FavoriteButton
+                                      productId={product.id}
+                                      retailerId={retailerId}
+                                      initialIsFavorite={favoriteProductIds.has(product.id)}
+                                      compact={true}
+                                      onChange={(isFavorite) => {
+                                        setFavoriteProductIds(prev => {
+                                          const newSet = new Set(prev)
+                                          if (isFavorite) {
+                                            newSet.add(product.id)
+                                          } else {
+                                            newSet.delete(product.id)
+                                          }
+                                          return newSet
+                                        })
+                                      }}
+                                    />
+                                    <div className="text-sm font-medium text-gray-900">{product.product_name}</div>
+                                  </div>
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap">
+                                  <div className="text-sm text-gray-600">{product.sku}</div>
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap">
+                                  <div className="text-sm text-gray-600">{product.category || '-'}</div>
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap">
+                                  <div className="text-sm text-gray-600">{product.manufacturer_name || '-'}</div>
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap">
+                                  <div className="text-sm font-medium text-gray-900">{formatPrice(product.price)}</div>
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap">
+                                  <span className={`text-xs px-2 py-1 rounded ${stockStatus.className}`}>
+                                    {stockStatus.label}
+                                  </span>
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
+                                  <Link
+                                    href={`/retailer/products/${product.id}`}
+                                    className="text-indigo-600 hover:text-indigo-900 font-medium"
+                                  >
+                                    View
+                                  </Link>
+                                </td>
+                              </tr>
+                            )
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
 
                 {/* Pagination */}
                 {totalPages > 1 && (

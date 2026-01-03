@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/utils/supabase'
+import LogoUploader from '@/components/LogoUploader'
 
 interface ApiToken {
   id: string
@@ -24,7 +25,9 @@ export default function ManufacturerSettingsPage() {
   const [companyName, setCompanyName] = useState('')
   const [companyEmail, setCompanyEmail] = useState('')
   const [industry, setIndustry] = useState('')
+  const [logoUrl, setLogoUrl] = useState<string | null>(null)
   const [isSaving, setIsSaving] = useState(false)
+  const [uploadingLogo, setUploadingLogo] = useState(false)
   const [saveMessage, setSaveMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null)
 
   // API Tokens state
@@ -67,7 +70,7 @@ export default function ManufacturerSettingsPage() {
 
       const { data, error } = await supabase
         .from('manufacturers')
-        .select('company_name, email, industry')
+        .select('company_name, email, industry, logo_url')
         .eq('id', user.id)
         .single()
 
@@ -81,6 +84,7 @@ export default function ManufacturerSettingsPage() {
         setCompanyName(data.company_name || '')
         setCompanyEmail(data.email || '')
         setIndustry(data.industry || '')
+        setLogoUrl(data.logo_url || null)
       }
     } catch (err) {
       console.error('Error:', err)
@@ -417,6 +421,30 @@ export default function ManufacturerSettingsPage() {
                     {saveMessage.text}
                   </div>
                 )}
+                
+                {/* Logo Upload Section */}
+                <div className="mb-8 pb-8 border-b border-gray-200">
+                  <LogoUploader
+                    currentLogoUrl={logoUrl}
+                    companyName={companyName}
+                    onUploadSuccess={(url) => {
+                      setLogoUrl(url)
+                      setSaveMessage({ type: 'success', text: 'Logo uploaded successfully!' })
+                      setTimeout(() => setSaveMessage(null), 3000)
+                    }}
+                    onError={(error) => {
+                      setSaveMessage({ type: 'error', text: error })
+                      setTimeout(() => setSaveMessage(null), 5000)
+                    }}
+                    onRemove={() => {
+                      setLogoUrl(null)
+                      setSaveMessage({ type: 'success', text: 'Logo removed successfully!' })
+                      setTimeout(() => setSaveMessage(null), 3000)
+                    }}
+                    uploading={uploadingLogo}
+                  />
+                </div>
+
                 <form onSubmit={handleSave} className="space-y-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
