@@ -33,10 +33,10 @@ export default function TopNav({ userRole, userId }: TopNavProps) {
             <NotificationBell userId={userId} userType={userRole} />
           )}
 
-          {/* Help (Retailers only) */}
-          {userRole === 'retailer' && (
+          {/* Help */}
+          {userRole && (
             <Link
-              href="/retailer/help"
+              href={`/${userRole}/help`}
               className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
               title="Help"
             >

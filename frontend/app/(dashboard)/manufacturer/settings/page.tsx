@@ -92,10 +92,15 @@ export default function ManufacturerSettingsPage() {
   const fetchTokens = async () => {
     try {
       setTokensLoading(true)
+      // Get session token for authentication
+      const { data: { session } } = await supabase.auth.getSession()
+      const accessToken = session?.access_token
+
       const response = await fetch('/api/manufacturer/api-tokens', {
         credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
+          ...(accessToken && { 'Authorization': `Bearer ${accessToken}` }),
         }
       })
 
@@ -208,9 +213,17 @@ export default function ManufacturerSettingsPage() {
         }
       }
 
+      // Get session token for authentication
+      const { data: { session } } = await supabase.auth.getSession()
+      const accessToken = session?.access_token
+
       const response = await fetch('/api/manufacturer/api-tokens', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          ...(accessToken && { 'Authorization': `Bearer ${accessToken}` }),
+        },
+        credentials: 'include',
         body: JSON.stringify({
           token_name: tokenName,
           scopes: selectedScopes,
@@ -253,9 +266,17 @@ export default function ManufacturerSettingsPage() {
     }
 
     try {
+      // Get session token for authentication
+      const { data: { session } } = await supabase.auth.getSession()
+      const accessToken = session?.access_token
+
       const response = await fetch('/api/manufacturer/api-tokens', {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          ...(accessToken && { 'Authorization': `Bearer ${accessToken}` }),
+        },
+        credentials: 'include',
         body: JSON.stringify({ id: tokenId, is_active: false })
       })
 
@@ -280,8 +301,16 @@ export default function ManufacturerSettingsPage() {
     }
 
     try {
+      // Get session token for authentication
+      const { data: { session } } = await supabase.auth.getSession()
+      const accessToken = session?.access_token
+
       const response = await fetch(`/api/manufacturer/api-tokens?id=${tokenId}`, {
-        method: 'DELETE'
+        method: 'DELETE',
+        headers: {
+          ...(accessToken && { 'Authorization': `Bearer ${accessToken}` }),
+        },
+        credentials: 'include'
       })
 
       if (!response.ok) {

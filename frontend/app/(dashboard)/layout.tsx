@@ -25,25 +25,25 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       setUserId(user.id)
 
       // Determine role
-      const { data: mfg } = await supabase
+      const { data: mfg, error: mfgError } = await supabase
         .from('manufacturers')
         .select('id')
         .eq('id', user.id)
-        .single()
+        .maybeSingle()
       
-      if (mfg) {
+      if (mfg && !mfgError) {
         setUserRole('manufacturer')
         setLoading(false)
         return
       }
 
-      const { data: ret } = await supabase
+      const { data: ret, error: retError } = await supabase
         .from('retailers')
         .select('id')
         .eq('id', user.id)
-        .single()
+        .maybeSingle()
       
-      if (ret) {
+      if (ret && !retError) {
         setUserRole('retailer')
         setLoading(false)
         return

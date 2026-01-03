@@ -435,7 +435,7 @@ export default function RetailerHelpPage() {
       </div>
 
       {/* Quick Links */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-12">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
         {helpSections.map(section => (
           <button
             key={section.id}
@@ -449,6 +449,32 @@ export default function RetailerHelpPage() {
             <div className="text-sm font-semibold text-gray-900">{section.title}</div>
           </button>
         ))}
+      </div>
+
+      {/* API Documentation Link */}
+      <div className="mb-12 p-6 bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-200 rounded-lg">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-xl font-semibold text-gray-900 mb-2">📚 API Documentation</h3>
+            <p className="text-gray-700 mb-4">
+              Looking to integrate NexusXO into your systems? Check out our comprehensive API documentation with code examples, interactive testing, and guides.
+            </p>
+            <Link
+              href="/docs"
+              className="inline-flex items-center px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium"
+            >
+              View API Documentation
+              <svg
+                className="ml-2 w-5 h-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </Link>
+          </div>
+        </div>
       </div>
 
       {/* Help Sections */}

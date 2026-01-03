@@ -6,16 +6,7 @@ import crypto from 'crypto'
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 
-async function getSupabaseClient() {
-  const cookieStore = await cookies()
-  return createClient(supabaseUrl, supabaseAnonKey, {
-    cookies: {
-      get(name: string) {
-        return cookieStore.get(name)?.value
-      },
-    },
-  })
-}
+// Removed - use auth from request directly
 
 async function getServiceSupabaseClient() {
   return createClient(
@@ -30,17 +21,56 @@ async function verifyManufacturer(userId: string) {
     .from('manufacturers')
     .select('id')
     .eq('id', userId)
-    .single()
+    .maybeSingle()
 
   return { isValid: !error && !!data, error }
 }
 
 export async function GET(request: NextRequest) {
   try {
-    const supabase = await getSupabaseClient()
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    // Try to get access token from Authorization header first
+    const authHeader = request.headers.get('Authorization')
+    let user: any = null
+    
+    if (authHeader?.startsWith('Bearer ')) {
+      const token = authHeader.replace('Bearer ', '')
+      const tokenSupabase = createClient(supabaseUrl, supabaseAnonKey, {
+        global: {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      })
+      const { data: { user: userFromToken }, error: tokenError } = await tokenSupabase.auth.getUser()
+      if (!tokenError && userFromToken) {
+        user = userFromToken
+      }
+    }
+    
+    // If no user from token, try cookies
+    if (!user) {
+      const cookieStore = await cookies()
+      const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+        cookies: {
+          get(name: string) {
+            return cookieStore.get(name)?.value
+          },
+        },
+      })
+      const { data: { session } } = await supabase.auth.getSession()
+      user = session?.user
+      
+      if (!user) {
+        const { data: { user: userFromGetUser }, error: authError } = await supabase.auth.getUser()
+        if (authError || !userFromGetUser) {
+          console.error('Auth error in GET /api/manufacturer/api-tokens:', authError || 'No session or user')
+          return NextResponse.json({ error: 'Unauthorized', details: authError?.message || 'No session found' }, { status: 401 })
+        }
+        user = userFromGetUser
+      }
+    }
 
-    if (authError || !user) {
+    if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -95,10 +125,49 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await getSupabaseClient()
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    // Try to get access token from Authorization header first
+    const authHeader = request.headers.get('Authorization')
+    let user: any = null
+    
+    if (authHeader?.startsWith('Bearer ')) {
+      const token = authHeader.replace('Bearer ', '')
+      const tokenSupabase = createClient(supabaseUrl, supabaseAnonKey, {
+        global: {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      })
+      const { data: { user: userFromToken }, error: tokenError } = await tokenSupabase.auth.getUser()
+      if (!tokenError && userFromToken) {
+        user = userFromToken
+      }
+    }
+    
+    // If no user from token, try cookies
+    if (!user) {
+      const cookieStore = await cookies()
+      const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+        cookies: {
+          get(name: string) {
+            return cookieStore.get(name)?.value
+          },
+        },
+      })
+      const { data: { session } } = await supabase.auth.getSession()
+      user = session?.user
+      
+      if (!user) {
+        const { data: { user: userFromGetUser }, error: authError } = await supabase.auth.getUser()
+        if (authError || !userFromGetUser) {
+          console.error('Auth error in POST /api/manufacturer/api-tokens:', authError || 'No session or user')
+          return NextResponse.json({ error: 'Unauthorized', details: authError?.message || 'No session found' }, { status: 401 })
+        }
+        user = userFromGetUser
+      }
+    }
 
-    if (authError || !user) {
+    if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -209,10 +278,49 @@ export async function POST(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
-    const supabase = await getSupabaseClient()
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    // Try to get access token from Authorization header first
+    const authHeader = request.headers.get('Authorization')
+    let user: any = null
+    
+    if (authHeader?.startsWith('Bearer ')) {
+      const token = authHeader.replace('Bearer ', '')
+      const tokenSupabase = createClient(supabaseUrl, supabaseAnonKey, {
+        global: {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      })
+      const { data: { user: userFromToken }, error: tokenError } = await tokenSupabase.auth.getUser()
+      if (!tokenError && userFromToken) {
+        user = userFromToken
+      }
+    }
+    
+    // If no user from token, try cookies
+    if (!user) {
+      const cookieStore = await cookies()
+      const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+        cookies: {
+          get(name: string) {
+            return cookieStore.get(name)?.value
+          },
+        },
+      })
+      const { data: { session } } = await supabase.auth.getSession()
+      user = session?.user
+      
+      if (!user) {
+        const { data: { user: userFromGetUser }, error: authError } = await supabase.auth.getUser()
+        if (authError || !userFromGetUser) {
+          console.error('Auth error in DELETE /api/manufacturer/api-tokens:', authError || 'No session or user')
+          return NextResponse.json({ error: 'Unauthorized', details: authError?.message || 'No session found' }, { status: 401 })
+        }
+        user = userFromGetUser
+      }
+    }
 
-    if (authError || !user) {
+    if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -269,10 +377,49 @@ export async function DELETE(request: NextRequest) {
 
 export async function PATCH(request: NextRequest) {
   try {
-    const supabase = await getSupabaseClient()
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    // Try to get access token from Authorization header first
+    const authHeader = request.headers.get('Authorization')
+    let user: any = null
+    
+    if (authHeader?.startsWith('Bearer ')) {
+      const token = authHeader.replace('Bearer ', '')
+      const tokenSupabase = createClient(supabaseUrl, supabaseAnonKey, {
+        global: {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      })
+      const { data: { user: userFromToken }, error: tokenError } = await tokenSupabase.auth.getUser()
+      if (!tokenError && userFromToken) {
+        user = userFromToken
+      }
+    }
+    
+    // If no user from token, try cookies
+    if (!user) {
+      const cookieStore = await cookies()
+      const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+        cookies: {
+          get(name: string) {
+            return cookieStore.get(name)?.value
+          },
+        },
+      })
+      const { data: { session } } = await supabase.auth.getSession()
+      user = session?.user
+      
+      if (!user) {
+        const { data: { user: userFromGetUser }, error: authError } = await supabase.auth.getUser()
+        if (authError || !userFromGetUser) {
+          console.error('Auth error in PATCH /api/manufacturer/api-tokens:', authError || 'No session or user')
+          return NextResponse.json({ error: 'Unauthorized', details: authError?.message || 'No session found' }, { status: 401 })
+        }
+        user = userFromGetUser
+      }
+    }
 
-    if (authError || !user) {
+    if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
