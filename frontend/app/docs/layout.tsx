@@ -71,6 +71,21 @@ const navigation = [
       { name: 'Sample Files', href: '/docs/sdks/sample-files' },
     ],
   },
+  {
+    name: 'Developer Guide',
+    icon: BookOpenIcon,
+    children: [
+      { name: 'Overview', href: '/docs/developer' },
+      { name: 'Executive Summary', href: '/docs/developer/summary' },
+      { name: 'Architecture', href: '/docs/developer/architecture' },
+      { name: 'Database Schema', href: '/docs/developer/database' },
+      { name: 'Setup & Installation', href: '/docs/developer/setup' },
+      { name: 'Development Workflow', href: '/docs/developer/development' },
+      { name: 'Deployment', href: '/docs/developer/deployment' },
+      { name: 'Testing', href: '/docs/developer/testing' },
+      { name: 'Troubleshooting', href: '/docs/developer/troubleshooting' },
+    ],
+  },
 ]
 
 export default function DocsLayout({ children }: { children: React.ReactNode }) {
