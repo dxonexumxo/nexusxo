@@ -1,0 +1,29 @@
+# Your Supabase Database Connection String Template
+
+## ✅ CORRECT FORMAT (use this):
+postgresql://postgres:[YOUR-PASSWORD]@db.tnavqjdjenvqpjwpwfzv.supabase.co:5432/postgres
+
+## How to use:
+1. Replace [YOUR-PASSWORD] with your actual database password
+   - Get it from: Supabase Dashboard → Settings → Database → Database password
+   - If you don't know it, click "Reset database password"
+
+2. Your PROJECT-REF is: tnavqjdjenvqpjwpwfzv
+   (extracted from your NEXT_PUBLIC_SUPABASE_URL)
+
+## Example command for pg_dump:
+pg_dump "postgresql://postgres:YourActualPasswordHere@db.tnavqjdjenvqpjwpwfzv.supabase.co:5432/postgres" > backup.sql
+
+## For PowerShell (Windows):
+$env:PGPASSWORD="YourActualPasswordHere"
+pg_dump -h db.tnavqjdjenvqpjwpwfzv.supabase.co -U postgres -d postgres > backup.sql
+
+---
+
+## ❌ WRONG FORMAT (what you had before):
+postgresql://postgres.[PROJECT-REF]:[YOUR-PASSWORD]@db.[PROJECT-REF].supabase.co:5432/postgres
+
+This is incorrect because:
+- The username should be just "postgres" (not "postgres.[PROJECT-REF]")
+- The format is: postgresql://USERNAME:PASSWORD@HOST:PORT/DATABASE
+- PROJECT-REF only appears in the HOST part: db.[PROJECT-REF].supabase.co
